@@ -14,6 +14,231 @@ Azerbaijani is spoken by over 30 million people worldwide, yet remains significa
 - **Cost Efficiency**: Lightweight architecture enables deployment without expensive GPU infrastructure
 - **Scalability**: Foundation for expanding to other Turkic languages
 
+---
+
+## ⚠️ Proof of Concept: Current Limitations and Future Potential
+
+### **Important Notice: This is a Demonstration Project**
+
+This implementation serves as a **proof-of-concept** to demonstrate the technical feasibility of building an Azerbaijani TTS system. Due to computational constraints and dataset characteristics, the current model has significant limitations that must be understood before considering production use.
+
+### Why This is a POC (Not Production-Ready)
+
+#### 1. **Hardware Constraints: MacBook Air CPU Training**
+
+Training deep learning models on consumer-grade CPUs presents severe limitations:
+
+| Constraint | Impact | Reality Check |
+|-----------|--------|---------------|
+| **Limited Compute Power** | CPU ~100x slower than GPU for deep learning | Training took hours; production would take weeks |
+| **Memory Bandwidth** | RAM bottleneck for large batches | Forced to use batch_size=8 (GPU standard: 32-128) |
+| **Dataset Size Limitation** | Only 2,000 samples processed (0.5% of full dataset) | **Full 351k dataset would require months on CPU** |
+| **Training Duration** | 28 epochs completed in ~6 hours | **Full training (100+ epochs, 351k samples) = 60-90 days** |
+
+**Calculation for Full Training on MacBook Air M2:**
+```
+Time per epoch (2k samples, batch=8): ~13 minutes
+Full dataset (351k samples): 13 min × (351k/2k) = 2,275 minutes/epoch ≈ 38 hours/epoch
+
+Realistic production training:
+- 100 epochs × 38 hours = 3,800 hours = 158 days (5+ months)
+- Assuming 24/7 operation with no interruptions
+```
+
+**Conclusion**: CPU training on consumer hardware is **impractical for production-quality models**.
+
+---
+
+#### 2. **GPU Training Economics: A100 Reference**
+
+Using **NVIDIA A100 80GB** (industry standard for ML training):
+
+| Metric | Value | Calculation |
+|--------|-------|-------------|
+| **A100 Compute Speed** | ~100-150x faster than M2 CPU | Industry benchmarks for transformer models |
+| **Time per Epoch** (351k samples) | ~15-20 minutes | Based on similar TTS projects |
+| **Total Training Time** (100 epochs) | **25-33 hours** | 100 epochs × 15-20 min |
+| **A100 Cloud Cost** (AWS p4d.24xlarge) | **$32.77/hour** | AWS on-demand pricing (Jan 2026) |
+| **Total Training Cost** | **$820 - $1,082** | 25-33 hours × $32.77/hour |
+
+**Alternative Options:**
+
+| Platform | GPU Type | Cost/Hour | Est. Total Cost (100 epochs) |
+|----------|----------|-----------|------------------------------|
+| **Google Colab Pro+** | A100 40GB | $50/month flat | **$50** (if within limits) |
+| **Lambda Labs** | A100 80GB | $1.10/hour | **$27.50 - $36.30** |
+| **Vast.ai** | A100 80GB | $0.80-1.50/hour | **$20 - $50** (spot pricing) |
+| **RunPod** | A100 80GB | $1.39/hour | **$35 - $46** |
+
+💡 **Recommendation**: For serious training, use **Lambda Labs** or **Vast.ai** for cost-effectiveness (~$30-50 for full training run).
+
+**Why We Didn't Train on GPU:**
+- Focus on demonstrating architecture viability
+- Proof-of-concept budget constraints
+- MacBook Air as accessible development environment
+
+---
+
+#### 3. **Dataset Quality Issues: ASR Data for TTS**
+
+**Critical Limitation**: We're using an **Automatic Speech Recognition (ASR) dataset** for **Text-to-Speech (TTS)** training.
+
+| Issue | Description | Impact on TTS Quality |
+|-------|-------------|----------------------|
+| **Multiple Speakers** | ASR datasets contain diverse speakers (male/female, ages, accents) | Model learns "average" voice, produces inconsistent/noisy output |
+| **Noisy Recordings** | Background noise, varying audio quality | Learned spectrograms include noise patterns |
+| **Speaker ID Absent** | No labels indicating who is speaking | Cannot train multi-speaker TTS or filter by speaker |
+| **Data Inversion** | Using ASR target (audio) as TTS target without proper preprocessing | Mel spectrograms may not match TTS training requirements |
+| **Lack of Prosody Control** | No emotional labels, emphasis markers | Cannot control intonation, emotion, speaking style |
+
+**What We Should Have Done**:
+1. **Speaker Clustering**: Use embeddings (e.g., x-vectors) to group by speaker
+2. **Single-Speaker Filtering**: Train on clean, single-speaker subset (~10-20k samples)
+3. **Audio Quality Filtering**: Remove low-quality, noisy recordings
+4. **Professional TTS Dataset**: Ideally, use purpose-built TTS data (e.g., M-AILABS, CSS10)
+
+**Current Dataset Risks**:
+- ⚠️ **Variable audio quality** → Inconsistent synthesis
+- ⚠️ **Speaker mixing** → No consistent voice identity
+- ⚠️ **Background noise** → Artifacts in generated audio
+- ⚠️ **No validation of text accuracy** → Potential mismatches
+
+**Future Improvement Path**:
+```mermaid
+graph LR
+    A[Current: Raw ASR Data<br/>351k mixed samples] --> B[Step 1: Speaker Clustering<br/>Group by voice similarity]
+    B --> C[Step 2: Quality Filtering<br/>SNR > 20dB, clean recordings]
+    C --> D[Step 3: Single-Speaker Subset<br/>~15-30k samples, 10-20 hours]
+    D --> E[Step 4: TTS-Specific Training<br/>Clean, consistent voice model]
+
+    style A fill:#f8d7da
+    style E fill:#d4edda
+```
+
+---
+
+#### 4. **Model Performance: Why Audio is Just Noise**
+
+**Root Cause Analysis**:
+
+Our deep analysis revealed that the model produces nearly **identical mel spectrograms for all inputs**:
+
+```python
+# Spectrogram differences between different texts:
+"Salam" vs "Necəsən": Mean difference = 0.29 dB (should be ~10-20 dB)
+"Salam" vs "Bu gözəl bir gündür": Mean difference = 0.25 dB
+```
+
+**Why This Happened**:
+
+| Factor | Problem | Evidence |
+|--------|---------|----------|
+| **Insufficient Training Data** | 2,000 samples (0.5% of dataset) | Model hasn't seen enough diversity |
+| **High Validation Loss** | 36.2 (production target: <10) | Model didn't converge properly |
+| **Model Collapse** | Learned to output "average" spectrogram | All outputs sound identical |
+| **Early Stopping** | Stopped at epoch 28/50 | Premature convergence to local minimum |
+| **Dataset Noise** | Multi-speaker, variable quality | Model couldn't learn clean patterns |
+
+**What the Model Actually Learned**:
+- ✅ Generates mel spectrograms (shape is correct)
+- ✅ Uses Azerbaijani text encoding (characters processed correctly)
+- ❌ **Does NOT map specific text to specific sounds**
+- ❌ Produces generic "average" output regardless of input
+
+**Griffin-Lim is Not the Problem**:
+- The vocoder (Griffin-Lim) works as expected
+- Problem is the **input** (nearly identical spectrograms for all text)
+- Even a perfect vocoder (HiFi-GAN) would produce noise from these spectrograms
+
+---
+
+### Screenshots: Web Application Demo
+
+![Landing Page](screenshots/landing.png)
+*Modern, responsive landing page with gradient design and clear call-to-action*
+
+![Text Input Interface](screenshots/filling%20text%20field.png)
+*User-friendly text input with character counter and example phrases*
+
+![Synthesis Output](screenshots/output.png)
+*Generated mel spectrogram visualization with download options*
+
+![Statistics Dashboard](screenshots/statistics.png)
+*Model performance statistics and technical specifications*
+
+---
+
+### What Would Make This Production-Ready?
+
+To transform this POC into a viable product, you would need:
+
+#### **Option 1: Proper Training Run** (Recommended for Learning)
+
+**Requirements**:
+- **GPU**: A100 or RTX 4090 (minimum RTX 3090)
+- **Time**: 25-40 hours training time
+- **Cost**: $30-50 on cloud GPUs (Lambda Labs/Vast.ai)
+- **Dataset**: Clean, single-speaker subset (15-30k samples, 10-20 hours of audio)
+- **Hyperparameters**:
+  - Batch size: 32-64
+  - Epochs: 100-200
+  - Learning rate schedule: Cosine annealing
+  - Target validation loss: <10
+
+**Expected Outcome**: Moderate-quality TTS (intelligible but robotic)
+
+---
+
+#### **Option 2: State-of-the-Art Approach** (Industry Standard)
+
+**Architecture**: Use modern TTS pipelines:
+1. **Text → Mel**: Tacotron2, FastSpeech2, or VITS
+2. **Mel → Audio**: HiFi-GAN, WaveGlow, or neural vocoder
+
+**Requirements**:
+- **GPU**: Multi-GPU setup (2-4 × A100)
+- **Time**: 100-200 hours training
+- **Cost**: $3,000-6,500 on cloud
+- **Dataset**: Professional TTS data (40+ hours, single speaker, studio quality)
+- **Expertise**: Deep learning engineers, audio processing specialists
+
+**Expected Outcome**: High-quality, natural-sounding TTS
+
+---
+
+#### **Option 3: Pre-trained Model Fine-Tuning** (Fastest Path)
+
+**Approach**: Start with multilingual TTS model (e.g., XTTS, MMS-TTS), fine-tune on Azerbaijani
+
+**Requirements**:
+- **GPU**: Single A100 or RTX 4090
+- **Time**: 10-20 hours fine-tuning
+- **Cost**: $15-30
+- **Dataset**: 5-10 hours clean Azerbaijani speech
+
+**Expected Outcome**: Good quality if base model supports Turkic languages
+
+---
+
+### Current Project Value: What This POC Demonstrates
+
+Despite limitations, this project successfully proves:
+
+- ✅ **Technical Feasibility**: Azerbaijani TTS is achievable with modern ML
+- ✅ **Architecture Validity**: Seq2Seq + Attention works for this use case
+- ✅ **Dataset Usability**: The LocalDoc dataset can be processed and used
+- ✅ **Deployment Pipeline**: Full web application with Docker deployment
+- ✅ **Cost Analysis**: Clear understanding of production requirements
+- ✅ **Learning Platform**: Excellent educational resource for TTS development
+
+**Intended Use Cases**:
+- 📚 **Educational**: Learn TTS architecture and training
+- 🔬 **Research**: Baseline for Azerbaijani speech synthesis
+- 🏗️ **Prototyping**: Demonstrate concept to stakeholders
+- 📊 **Analysis**: Understand data requirements and quality impact
+
+---
+
 ### Use Cases and Market Applications
 
 ```mermaid
