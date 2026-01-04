@@ -982,6 +982,15 @@ This project is built upon the **LocalDoc/azerbaijani_asr dataset**, a comprehen
 
 ---
 
+## Authors
+
+This project was developed by:
+
+- **[Ismat Samadov](https://github.com/ismat-samadov)** - Project Lead & ML Engineer
+- **[Ulvi Bashirov](https://github.com/ulvibashir)** - Co-Author & Contributor
+
+---
+
 ## Acknowledgments
 
 We would like to express our sincere gratitude to **[LocalDoc](https://huggingface.co/LocalDoc)** and all their contributors for their invaluable open source initiative in creating and maintaining the azerbaijani_asr dataset.
