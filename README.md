@@ -14,6 +14,70 @@ Azerbaijani is spoken by over 30 million people worldwide, yet remains significa
 - **Cost Efficiency**: Lightweight architecture enables deployment without expensive GPU infrastructure
 - **Scalability**: Foundation for expanding to other Turkic languages
 
+### Use Cases and Market Applications
+
+```mermaid
+mindmap
+  root((Azerbaijani TTS<br/>Applications))
+    Education
+      E-Learning Platforms
+      Language Learning Apps
+      Audiobook Generation
+      Accessibility Tools
+    Enterprise
+      Customer Service Bots
+      IVR Systems
+      Virtual Assistants
+      Corporate Training
+    Media & Entertainment
+      Content Localization
+      Podcast Generation
+      Video Narration
+      Gaming Voice-Overs
+    Government & Public
+      Public Announcements
+      Emergency Alerts
+      Citizen Services
+      Document Reading
+    Healthcare
+      Patient Information
+      Medication Reminders
+      Telemedicine Support
+      Accessibility Features
+    IoT & Smart Devices
+      Smart Home Devices
+      Navigation Systems
+      Wearable Tech
+      Automotive Integration
+```
+
+**Target Market Segments:**
+1. **Education Tech** (40% TAM): 2M+ students in Azerbaijan and diaspora
+2. **Enterprise SaaS** (30% TAM): Customer service and automation
+3. **Media Production** (20% TAM): Content creators and publishers
+4. **Public Sector** (10% TAM): Government and healthcare institutions
+
+### End-to-End ML Pipeline
+
+```mermaid
+graph LR
+    A[Raw Dataset<br/>351k Audio Files] --> B[Data Sampling<br/>2k Selected Samples]
+    B --> C[Data Preprocessing<br/>Text + Audio]
+    C --> D[Feature Extraction<br/>Mel Spectrograms]
+    D --> E[Model Training<br/>Seq2Seq + Attention]
+    E --> F[Model Evaluation<br/>Test Set]
+    F --> G{Quality<br/>Acceptable?}
+    G -->|Yes| H[Production Deployment]
+    G -->|No| I[Hyperparameter Tuning]
+    I --> E
+    H --> J[Voice Synthesis API]
+
+    style A fill:#e1f5ff
+    style H fill:#d4edda
+    style J fill:#d4edda
+    style G fill:#fff3cd
+```
+
 ---
 
 ## Dataset Analysis: What the Numbers Tell Us
@@ -113,6 +177,44 @@ Mel spectrograms are the "fingerprints" of audio—they capture the unique patte
 
 **Bottom Line:** The audio quality meets professional standards, which directly translates to believable, engaging synthesized speech in production.
 
+### Data Preparation Pipeline
+
+```mermaid
+flowchart TD
+    Start([HuggingFace Dataset<br/>LocalDoc/azerbaijani_asr]) --> Load[Load Parquet Files]
+    Load --> Filter{Filter by Duration<br/>1-10 seconds}
+    Filter -->|Keep| Sample[Random Sample<br/>2,000 items]
+    Filter -->|Discard| Reject[❌ Too short/long]
+
+    Sample --> Split[Train/Val/Test Split<br/>70% / 15% / 15%]
+
+    Split --> Text[Text Processing]
+    Split --> Audio[Audio Processing]
+
+    Text --> Encode[Character Encoding<br/>124 unique chars]
+    Encode --> TextOut[Encoded Text Tensor]
+
+    Audio --> Extract[Mel Spectrogram<br/>Extraction]
+    Extract --> Normalize[Normalization<br/>80 mel bands, 16kHz]
+    Normalize --> AudioOut[Mel Spectrogram Tensor]
+
+    TextOut --> DataLoader[PyTorch DataLoader]
+    AudioOut --> DataLoader
+
+    DataLoader --> Ready([Ready for Training])
+
+    style Start fill:#e1f5ff
+    style Ready fill:#d4edda
+    style Reject fill:#f8d7da
+    style DataLoader fill:#fff3cd
+```
+
+**Key Transformation Steps:**
+- **Filtering**: Ensures optimal audio length (1-10 seconds) for training efficiency
+- **Character Encoding**: Converts Azerbaijani text (including special characters) to numerical format
+- **Mel Spectrogram**: Transforms audio waveforms into frequency-time representations
+- **DataLoader**: Batches data efficiently for model consumption
+
 ---
 
 ## Model Architecture: Strategic Design Choices
@@ -143,6 +245,57 @@ Mel spectrograms are the "fingerprints" of audio—they capture the unique patte
 - Proven architecture reduces technical risk
 - Industry-standard approach ensures access to talent and support
 - Clear upgrade path if future requirements demand higher complexity
+
+### Model Architecture Diagram
+
+```mermaid
+graph TD
+    Input[Input Text<br/>'Salam, necəsən?'] --> Encoder[Text Encoder<br/>Embedding + BiLSTM]
+
+    Encoder --> Hidden[Hidden States<br/>512 dimensions]
+
+    Hidden --> Attention[Attention Mechanism<br/>Context Vector]
+
+    Attention --> Decoder[Mel Decoder<br/>LSTM + FC Layers]
+
+    Decoder --> MelFrame[Mel Frame<br/>80 channels]
+
+    MelFrame --> Loop{More<br/>Frames?}
+    Loop -->|Yes| Attention
+    Loop -->|No| Output[Complete Mel Spectrogram]
+
+    Output --> Vocoder[Vocoder<br/>Future: WaveGlow/HiFi-GAN]
+    Vocoder --> Audio[🔊 Audio Output]
+
+    style Input fill:#e1f5ff
+    style Audio fill:#d4edda
+    style Attention fill:#fff3cd
+    style Decoder fill:#ffeaa7
+
+    subgraph "Text-to-Mel Model (7.2M params)"
+        Encoder
+        Hidden
+        Attention
+        Decoder
+    end
+
+    subgraph "Future Enhancement"
+        Vocoder
+    end
+```
+
+**Architecture Components:**
+
+| Component | Function | Business Value |
+|-----------|----------|----------------|
+| **Text Encoder** | Converts text to meaningful representations | Handles Azerbaijani's unique characters |
+| **Attention Mechanism** | Focuses on relevant text parts for each audio frame | Produces natural prosody and emphasis |
+| **Mel Decoder** | Generates audio features frame-by-frame | Lightweight design enables CPU deployment |
+| **Vocoder** (planned) | Converts mel spectrograms to raw audio | Final step for production-quality voice |
+
+**Current vs. Future State:**
+- ✅ **Current**: Text → Mel Spectrogram (complete and functional)
+- 🔄 **Next Phase**: Mel Spectrogram → Audio Waveform (vocoder integration)
 
 ---
 
@@ -198,6 +351,59 @@ Below is a representative sample of the text data the model was trained on, demo
 | **Test Samples** | 300 (15%) | Unbiased performance evaluation |
 | **Audio Sampling Rate** | 16 kHz | Industry standard for speech (phone-quality+) |
 | **Mel Frequency Bands** | 80 | Captures essential voice characteristics |
+
+### Training Workflow
+
+```mermaid
+stateDiagram-v2
+    [*] --> DataLoading: Initialize
+    DataLoading --> Preprocessing: Load 2k samples
+
+    Preprocessing --> Training: Split data 70/15/15
+
+    Training --> Validation: Train epoch
+    Validation --> Checkpoint: Evaluate model
+
+    Checkpoint --> BestModel: Validation loss improved?
+    BestModel --> Training: Continue training
+
+    Checkpoint --> EarlyStopping: No improvement for 10 epochs?
+    EarlyStopping --> Testing: Training complete
+
+    Testing --> Metrics: Evaluate on test set
+    Metrics --> SaveArtifacts: Calculate final metrics
+
+    SaveArtifacts --> [*]: Model ready for deployment
+
+    note right of Training
+        Batch size: 8
+        Optimizer: Adam
+        Learning rate: 0.001
+        Loss: MSE
+    end note
+
+    note right of BestModel
+        Save checkpoint:
+        - Model weights
+        - Optimizer state
+        - Training epoch
+        - Validation loss
+    end note
+
+    note right of SaveArtifacts
+        Final artifacts:
+        - best_model.pt
+        - char_encoder.pkl
+        - config.json
+        - metrics.json
+    end note
+```
+
+**Training Process Highlights:**
+- **Iterative refinement**: Model improves over 50 epochs
+- **Early stopping**: Prevents overfitting, ensures generalization
+- **Best model selection**: Based on validation performance, not training performance
+- **Comprehensive logging**: All metrics tracked for reproducibility
 
 ---
 
@@ -257,6 +463,45 @@ Below is a representative sample of the text data the model was trained on, demo
 - Advanced features (voice cloning, emotion synthesis)
 - Enterprise-grade SLA and support offerings
 
+### Project Roadmap Timeline
+
+```mermaid
+gantt
+    title Azerbaijani TTS Project Timeline
+    dateFormat  YYYY-MM-DD
+    section Phase 1: Quality Enhancement
+    Expand training dataset (5k-10k samples)    :p1a, 2026-01-04, 14d
+    A/B testing with native speakers             :p1b, after p1a, 7d
+    Hyperparameter optimization                  :p1c, after p1a, 7d
+
+    section Phase 2: Production Hardening
+    API development                               :p2a, after p1b, 14d
+    Performance optimization                      :p2b, after p2a, 7d
+    Security & compliance review                  :p2c, after p2b, 7d
+
+    section Phase 3: Market Launch
+    Beta program with enterprise customers        :p3a, after p2c, 14d
+    Platform integration (mobile, web)            :p3b, after p3a, 7d
+    Marketing campaign                            :p3c, after p3a, 14d
+
+    section Phase 4: Expansion
+    Multi-language support (Turkmen, Uzbek)       :p4a, after p3c, 21d
+    Advanced features (voice cloning, emotion)    :p4b, after p4a, 21d
+    Enterprise SLA and support                    :p4c, after p3c, 30d
+
+    section Milestones
+    MVP Complete                                  :milestone, m1, after p1c, 0d
+    Production Ready                              :milestone, m2, after p2c, 0d
+    Public Launch                                 :milestone, m3, after p3c, 0d
+    Enterprise Platform                           :milestone, m4, after p4c, 0d
+```
+
+**Critical Milestones:**
+- 🎯 **Week 4**: MVP with enhanced quality
+- 🎯 **Week 8**: Production-ready API
+- 🎯 **Week 12**: Public market launch
+- 🎯 **Week 24**: Full enterprise platform
+
 ---
 
 ## Conclusion: Strategic Value Proposition
@@ -284,6 +529,94 @@ This Azerbaijani Text-to-Speech project represents a **high-impact, low-risk opp
 - Time to expand to additional languages
 - Partnership and integration opportunities
 - Competitive positioning vs. large tech incumbents
+
+### Production Deployment Architecture
+
+```mermaid
+graph TB
+    subgraph "Client Applications"
+        WebApp[Web Application]
+        Mobile[Mobile App]
+        IoT[IoT Devices]
+    end
+
+    subgraph "API Gateway Layer"
+        Gateway[Load Balancer<br/>& API Gateway]
+        Auth[Authentication<br/>& Rate Limiting]
+    end
+
+    subgraph "Application Layer (CPU Servers)"
+        API1[TTS API Server 1<br/>Flask/FastAPI]
+        API2[TTS API Server 2<br/>Flask/FastAPI]
+        API3[TTS API Server N<br/>Horizontal Scaling]
+    end
+
+    subgraph "Model Serving"
+        Model1[TTS Model Instance<br/>7.2M params]
+        Model2[TTS Model Instance<br/>7.2M params]
+        Model3[TTS Model Instance<br/>7.2M params]
+        Cache[Response Cache<br/>Redis]
+    end
+
+    subgraph "Storage & Monitoring"
+        DB[(Database<br/>User Data)]
+        Logs[Logging<br/>Metrics]
+        Monitor[Monitoring<br/>Alerts]
+    end
+
+    WebApp --> Gateway
+    Mobile --> Gateway
+    IoT --> Gateway
+
+    Gateway --> Auth
+    Auth --> API1
+    Auth --> API2
+    Auth --> API3
+
+    API1 --> Model1
+    API2 --> Model2
+    API3 --> Model3
+
+    Model1 --> Cache
+    Model2 --> Cache
+    Model3 --> Cache
+
+    API1 --> DB
+    API2 --> DB
+    API3 --> DB
+
+    API1 --> Logs
+    API2 --> Logs
+    API3 --> Logs
+
+    Logs --> Monitor
+
+    style WebApp fill:#e1f5ff
+    style Mobile fill:#e1f5ff
+    style IoT fill:#e1f5ff
+    style Gateway fill:#fff3cd
+    style Auth fill:#fff3cd
+    style Model1 fill:#d4edda
+    style Model2 fill:#d4edda
+    style Model3 fill:#d4edda
+    style Cache fill:#ffeaa7
+```
+
+**Deployment Benefits:**
+
+| Component | Benefit | Cost Impact |
+|-----------|---------|-------------|
+| **CPU-Only Servers** | No GPU infrastructure needed | 70-80% savings vs. GPU deployment |
+| **Horizontal Scaling** | Add servers as demand grows | Pay-as-you-grow model |
+| **Response Cache** | Reduces redundant synthesis | 40-60% latency reduction for common phrases |
+| **Load Balancer** | High availability and fault tolerance | Ensures 99.9%+ uptime |
+
+**Estimated Infrastructure Costs (Monthly):**
+- **Starter** (1-10k requests/day): $50-200/month
+- **Growth** (10k-100k requests/day): $200-1,000/month
+- **Enterprise** (100k-1M requests/day): $1,000-5,000/month
+
+💡 **Cost Advantage**: Comparable GPU-based TTS solutions cost 3-5x more for equivalent capacity.
 
 ---
 
