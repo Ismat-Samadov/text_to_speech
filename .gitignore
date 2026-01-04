@@ -17,7 +17,7 @@ azerbaijani_asr_data/
 
 # Model artifacts (can contain large model files)
 
-*.pt
+# *.pt
 *.pth
 *.pkl
 *.pickle
