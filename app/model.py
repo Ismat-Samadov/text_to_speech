@@ -7,6 +7,58 @@ import numpy as np
 from pathlib import Path
 
 
+class CharacterEncoder:
+    """Encode and decode text at character level"""
+
+    def __init__(self):
+        self.char_to_idx = {}
+        self.idx_to_char = {}
+        self.vocab_size = 0
+
+    def fit(self, texts):
+        """Build vocabulary from texts"""
+        # Get all unique characters
+        all_chars = set(''.join(texts))
+
+        # Add special tokens
+        special_tokens = ['<PAD>', '<SOS>', '<EOS>', '<UNK>']
+
+        # Build mappings
+        vocab = special_tokens + sorted(list(all_chars))
+        self.char_to_idx = {char: idx for idx, char in enumerate(vocab)}
+        self.idx_to_char = {idx: char for char, idx in self.char_to_idx.items()}
+        self.vocab_size = len(vocab)
+
+        return self
+
+    def encode(self, text, max_length=None):
+        """Convert text to indices"""
+        indices = [self.char_to_idx.get(char, self.char_to_idx['<UNK>'])
+                  for char in text]
+
+        # Add EOS token
+        indices.append(self.char_to_idx['<EOS>'])
+
+        # Pad if needed
+        if max_length:
+            if len(indices) < max_length:
+                indices += [self.char_to_idx['<PAD>']] * (max_length - len(indices))
+            else:
+                indices = indices[:max_length]
+
+        return indices
+
+    def decode(self, indices):
+        """Convert indices back to text"""
+        chars = []
+        for idx in indices:
+            if idx == self.char_to_idx['<EOS>']:
+                break
+            if idx != self.char_to_idx['<PAD>']:
+                chars.append(self.idx_to_char.get(idx, '<UNK>'))
+        return ''.join(chars)
+
+
 class TTSEncoder(nn.Module):
     """Text encoder for TTS"""
 

@@ -16,7 +16,7 @@ import io
 from pathlib import Path
 import logging
 
-from model import SimpleTTS, synthesize_speech
+from .model import SimpleTTS, synthesize_speech, CharacterEncoder
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,8 +68,14 @@ async def load_model():
     try:
         logger.info("Loading TTS model...")
 
-        # Load character encoder
+        # Load character encoder with custom unpickler to handle module path
         encoder_path = ARTIFACTS_DIR / "char_encoder.pkl"
+
+        # Custom unpickler to remap __main__ to app.model
+        import sys
+        import app.model
+        sys.modules['__main__'].CharacterEncoder = CharacterEncoder
+
         with open(encoder_path, 'rb') as f:
             char_encoder = pickle.load(f)
         logger.info(f"Character encoder loaded: {char_encoder.vocab_size} chars")
