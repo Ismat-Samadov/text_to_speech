@@ -13,7 +13,7 @@ def mel_to_audio(mel_spectrogram, sample_rate=16000, n_fft=1024, hop_length=256,
     Convert mel spectrogram to audio waveform using Griffin-Lim algorithm
 
     Args:
-        mel_spectrogram: Mel spectrogram (n_mels x time) in dB scale
+        mel_spectrogram: Mel spectrogram (n_mels x time) in dB scale from model
         sample_rate: Audio sample rate (Hz)
         n_fft: FFT window size
         hop_length: Hop length for STFT
@@ -22,8 +22,14 @@ def mel_to_audio(mel_spectrogram, sample_rate=16000, n_fft=1024, hop_length=256,
     Returns:
         audio: Audio waveform as numpy array
     """
-    # Convert from dB scale back to power
-    mel_spec_power = librosa.db_to_power(mel_spectrogram)
+    # Model outputs dB-scaled mel spectrogram (trained with power_to_db)
+    # Convert from dB scale back to power/magnitude
+    # Note: we use ref=1.0 as default, and normalize the result
+    mel_spec_power = librosa.db_to_power(mel_spectrogram, ref=1.0)
+
+    # Ensure non-negative and normalize to reasonable range
+    mel_spec_power = np.maximum(mel_spec_power, 1e-10)
+    mel_spec_power = mel_spec_power / np.max(mel_spec_power)  # Normalize to [0, 1]
 
     # Convert mel spectrogram back to linear spectrogram
     stft = librosa.feature.inverse.mel_to_stft(
@@ -42,7 +48,9 @@ def mel_to_audio(mel_spectrogram, sample_rate=16000, n_fft=1024, hop_length=256,
     )
 
     # Normalize audio to prevent clipping
-    audio = np.clip(audio, -1.0, 1.0)
+    max_val = np.max(np.abs(audio))
+    if max_val > 0:
+        audio = audio / max_val * 0.95  # Scale to 95% to avoid clipping
 
     return audio
 

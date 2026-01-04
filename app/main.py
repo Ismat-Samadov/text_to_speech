@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import io
 from pathlib import Path
 import logging
+import time
 
 from .model import SimpleTTS, synthesize_speech, CharacterEncoder
 from .vocoder import synthesize_audio_from_mel
@@ -252,13 +253,11 @@ async def synthesize_audio(request: SynthesisRequest):
 
         logger.info(f"Generated audio: {len(wav_bytes)} bytes")
 
-        # Return as WAV file
+        # Return as WAV file - inline so JavaScript can handle it
+        # Download button will handle saving with proper filename
         return StreamingResponse(
             io.BytesIO(wav_bytes),
-            media_type="audio/wav",
-            headers={
-                "Content-Disposition": f"attachment; filename=azerbaijani_tts_{request.text[:20]}.wav"
-            }
+            media_type="audio/wav"
         )
 
     except Exception as e:
